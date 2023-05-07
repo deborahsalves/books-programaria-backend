@@ -1,80 +1,75 @@
 const express = require('express');
 const router = express.Router();
+const cors = require('cors');
+
+const dbConnect = require('./booksDatabase');
+dbConnect();
+
+const Book = require('./bookModel');
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 const port = 3333;
 
-const books = [
-    {
-        id: "1",
-        title: 'Game of Thrones',
-        author: 'R. R. Martin',
-        editor: 'IDK',
-        coverUrl: ''
-    },
-    {
-        id: "2",
-        title: 'Percy Jackson and the Lightning Thief',
-        author: 'Rick Riordan',
-        editor: 'IDK',
-        coverUrl: ''
+const showBooks = async (request, response) => {
+    try {
+        const booksFromDb = await Book.find();
+        response.json(booksFromDb);
+    } catch (err) {
+        console.log(err);
     }
-]
-
-const showBooks = (request, response) => {
-    response.json(books);
 }
 
-const createBook = (request, response) => {
-    const newBook = {
-        id: request.body.id,
+const createBook = async (request, response) => {
+    const newBook = new Book({
         title: request.body.title,
         author: request.body.author,
         editor: request.body.editor,
-        coverUrl: request.body.editor
+        coverUrl: request.body.coverUrl
+    });
+
+    try {
+        const createdBook = await newBook.save()
+        response.status(201).json(createdBook);
+
+    } catch (err) {
+        console.log(err)
     }
 
-    books.push(newBook);
-
-    response.json(books);
 }
 
-const editBook = (request, response) => {
-    const findBook = (book) => {
-        if (book.id === request.params.id){
-            return book;
+const updateBook = async (request, response) => {
+    try {
+        const currentBook = await Book.findById(request.params.id);
+    
+        if(request.body.title) {
+            currentBook.title = request.body.title;
         }
+        if(request.body.author) {
+            currentBook.author = request.body.author;
+        }
+        if(request.body.editor) {
+            currentBook.editor = request.body.editor;
+        }
+        if(request.body.coverUrl) {
+            currentBook.coverUrl = request.body.coverUrl;
+        }
+    
+        const updatedBook = await currentBook.save();
+        response.json(updatedBook);
+    } catch (err) {
+        console.log(err)
     }
-
-    const currentBook = books.find(findBook);
-
-    if(request.body.title) {
-        currentBook.title = request.body.title;
-    }
-    if(request.body.author) {
-        currentBook.author = request.body.author;
-    }
-    if(request.body.editor) {
-        currentBook.editor = request.body.editor;
-    }
-    if(request.body.coverUrl) {
-        currentBook.coverUrl = request.body.coverUrl;
-    }
-
-    response.json(books);
 }
 
-const deleteBook = (request, response) => {
-    const allButBookToDelete = (book) => {
-        if (book.id !== request.params.id){
-            return book; 
-        }
+const deleteBook = async (request, response) => {
+    try {
+        await Book.findByIdAndDelete(request.params.id);
+        response.json({ message: 'Book successfully deleted'})
+    } catch (err) {
+        console.log(err);
     }
-
-    const booksToKeep = books.filter(allButBookToDelete);
-
-    response.json(booksToKeep);
 }
 
 const showPort = () => {
@@ -83,6 +78,6 @@ const showPort = () => {
 
 app.use(router.get('/books', showBooks));
 app.use(router.post('/books', createBook));
-app.use(router.patch('/books/:id', editBook));
+app.use(router.patch('/books/:id', updateBook));
 app.use(router.delete('/books/:id', deleteBook));
 app.listen(port, showPort);
